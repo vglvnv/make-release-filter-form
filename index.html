@@ -1,0 +1,123 @@
+
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Make release filter</title>
+    <style>
+        html {
+            font-family: helvetica, serif;
+        }
+
+        .form {
+            display: flex;
+            flex-flow: column nowrap;
+            width: 400px;
+            gap: 10px;
+        }
+
+        label {
+            display: flex;
+            flex-flow: row nowrap;
+            gap: 20px
+        }
+
+        input {
+            flex: auto;
+        }
+    </style>
+</head>
+<body>
+<div class="form">
+    <label>
+        Предыдущий релиз
+        <input id="previous-release-input" type="number">
+    </label>
+
+    <label>
+        Текущий релиз
+        <input id="current-release-input" type="number">
+    </label>
+
+    <label>
+        Маска версии
+        <input id="version-mask-input">
+    </label>
+
+    <label>
+        Поле с версией
+        <input id="version-field-name-input">
+    </label>
+
+    <label>
+        JIRA URL
+        <input id="jira-url-input">
+    </label>
+    <button onclick="openQuery()">Открыть результаты</button>
+    <button onclick="copyFormLink()">Скопировать ссылку на форму</button>
+</div>
+</body>
+<script>
+    function getFormData() {
+        const previousRelease = Number(document.getElementById('previous-release-input').value);
+        const currentRelease = Number(document.getElementById('current-release-input').value);
+        const versionMask = document.getElementById('version-mask-input').value;
+        const versionField = document.getElementById('version-field-name-input').value;
+        const jiraUrl = document.getElementById('jira-url-input').value;
+
+        return {previousRelease, currentRelease, versionMask, versionField, jiraUrl};
+    }
+
+    function openQuery() {
+        const {previousRelease, currentRelease, versionMask, versionField, jiraUrl} = getFormData();
+        const valuesToValidate = [previousRelease, currentRelease, versionMask, versionField, jiraUrl];
+
+        if (valuesToValidate.some(x => !x)) {
+            alert('Не все поля заполнены');
+            return;
+        }
+
+        if (currentRelease <= previousRelease) {
+            alert('Неверно определены границы релизов');
+            return;
+        }
+
+        const versions = new Array(currentRelease - previousRelease).fill(null).map((_, i) => versionMask.replace('{0}', previousRelease + i + 1));
+        const jql = versions.map(version => `${versionField} = ${version}`).join(' OR ');
+        const url = new URL(`/issues/?jql=${jql} ORDER BY ${versionField} ASC`, jiraUrl)
+
+        window.open(url.toString(), '_blank');
+    }
+
+    function copyFormLink() {
+        const {versionMask, versionField, jiraUrl} = getFormData();
+        const params = new URLSearchParams({versionMask, versionField, jiraUrl});
+        const urlToCopy = new URL(`${window.location.pathname}?${params.toString()}`, window.location.origin);
+
+        navigator.clipboard.writeText(urlToCopy.toString());
+    }
+
+    function parseSearchParams() {
+        const params = new URLSearchParams(window.location.search);
+        const versionMaskParam = params.get("versionMask");
+        const versionFieldParam = params.get("versionField");
+        const jiraUrl = params.get("jiraUrl");
+
+        if (versionMaskParam) {
+            document.getElementById('version-mask-input').value = versionMaskParam;
+        }
+
+        if (versionFieldParam) {
+            document.getElementById('version-field-name-input').value = versionFieldParam;
+        }
+
+        if (jiraUrl) {
+            document.getElementById('jira-url-input').value = jiraUrl;
+        }
+    }
+
+    parseSearchParams();
+</script>
+</html>
